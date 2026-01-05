@@ -79,4 +79,4 @@ This allows:
 2. Try different query methods: `filter()`, `order_by()`, `limit()`
 
 ## Next Step
-→ Go to **part-4** to learn database migrations with Flask-Migrate
+→ Go to **part-4** to learn REST API for database operations

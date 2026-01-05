@@ -13,18 +13,16 @@ A step-by-step guide to learn Flask with databases - from basic SQLite to produc
 | **part-1** | Basic SQLite | Basic Flask app with SQLite connection and one simple table (Create & Read) |
 | **part-2** | Full CRUD | Full CRUD operations (Create, Read, Update, Delete) with HTML forms |
 | **part-3** | SQLAlchemy ORM | Flask-SQLAlchemy ORM integration with models and relationships |
-| **part-4** | Migrations | Database migrations using Flask-Migrate (Alembic) |
-| **part-5** | Authentication | User authentication with password hashing and sessions |
-| **part-6** | REST API | REST API with Flask for database operations (JSON responses) |
-| **part-7** | Production DB | Switching to PostgreSQL/MySQL with environment configuration |
+| **part-4** | REST API | REST API with Flask for database operations (JSON responses) |
+| **part-5** | Production DB | Switching to PostgreSQL/MySQL with environment configuration |
 
 ## Difficulty Progression
 
 ```
-Easy ──────────────────────────────────────────────────► Advanced
+Easy ────────────────────────────────► Advanced
 
-part-1 → part-2 → part-3 → part-4 → part-5 → part-6 → part-7
-SQLite   CRUD     ORM      Migrate   Auth     API      PostgreSQL
+part-1 → part-2 → part-3 → part-4 → part-5
+SQLite   CRUD     ORM      API      PostgreSQL
 ```
 
 ## Quick Start
@@ -60,16 +58,10 @@ pip install flask
 # Part 3: SQLAlchemy ORM
 pip install flask-sqlalchemy
 
-# Part 4: Migrations
-pip install flask-migrate
-
-# Part 5: Authentication
-pip install flask-login werkzeug
-
-# Part 6: REST API
+# Part 4: REST API
 # (No additional packages needed)
 
-# Part 7: Production Databases
+# Part 5: Production Databases
 pip install psycopg2-binary  # PostgreSQL
 pip install pymysql          # MySQL
 pip install python-dotenv    # Environment variables
@@ -92,38 +84,15 @@ flask-database-starter/
 │   ├── app.py
 │   ├── templates/
 │   └── README.md
-├── part-4/                 <- Flask-Migrate
-│   ├── app.py
-│   ├── templates/
-│   └── README.md
-├── part-5/                 <- Authentication
-│   ├── app.py
-│   ├── templates/
-│   └── README.md
-├── part-6/                 <- REST API
+├── part-4/                 <- REST API
 │   ├── app.py
 │   └── README.md
-└── part-7/                 <- PostgreSQL/MySQL
+└── part-5/                 <- PostgreSQL/MySQL
     ├── app.py
     ├── .env.example
     ├── templates/
     └── README.md
 ```
-
-## Learning Path
-
-### Week 1: Fundamentals
-- **Day 1-2:** Part 1 - Understand SQLite basics
-- **Day 3-4:** Part 2 - Master CRUD operations
-
-### Week 2: ORM & Migrations
-- **Day 1-2:** Part 3 - Learn SQLAlchemy ORM
-- **Day 3-4:** Part 4 - Practice migrations
-
-### Week 3: Advanced Topics
-- **Day 1-2:** Part 5 - Implement authentication
-- **Day 3-4:** Part 6 - Build REST API
-- **Day 5:** Part 7 - Production database setup
 
 ## Key Concepts Covered
 
@@ -133,9 +102,6 @@ flask-database-starter/
 - HTML forms and form data
 - Flask-SQLAlchemy ORM
 - Database relationships (One-to-Many)
-- Database migrations with Alembic
-- Password hashing (werkzeug.security)
-- Session-based authentication (Flask-Login)
 - REST API design
 - JSON responses
 - Environment variables

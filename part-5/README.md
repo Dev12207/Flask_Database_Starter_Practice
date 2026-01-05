@@ -1,101 +1,160 @@
-# Part 5: User Authentication with Password Hashing
+# Part 5: PostgreSQL/MySQL with Environment Configuration
 
 ## One-Line Summary
-User authentication with password hashing and sessions
+Switching to PostgreSQL/MySQL with environment configuration
 
 ## What You'll Learn
-- User registration with hashed passwords
-- Login/Logout functionality
-- Session management with Flask-Login
-- Protecting routes with `@login_required`
+- Connecting to PostgreSQL and MySQL
+- Environment variables for configuration
+- python-dotenv for .env files
+- Database URL formats
 
 ## Prerequisites
-- Complete part-3 and part-4
-- Install: `pip install flask-login werkzeug`
+- Complete all previous parts
+- Install: `pip install psycopg2-binary pymysql python-dotenv`
 
 ## How to Run
+
+### With SQLite (Default):
 ```bash
-cd part-5
-pip install flask-login werkzeug
+cd part-7
+pip install python-dotenv
 python app.py
 ```
-Open: http://localhost:5000
 
-## Authentication Flow
+### With PostgreSQL:
+```bash
+# Install PostgreSQL driver
+pip install psycopg2-binary
 
-```
-REGISTRATION:
-User enters password → generate_password_hash() → Store hash in DB
+# Create .env file
+cp .env.example .env
 
-LOGIN:
-User enters password → check_password_hash() → If match → Create session
+# Edit .env and set:
+DATABASE_URL=postgresql://postgres:password@localhost:5432/flask_demo
 
-PROTECTED ROUTE:
-Request → Check session → User logged in? → Yes: Allow / No: Redirect to login
-
-LOGOUT:
-Clear session → Redirect to home
+# Run app
+python app.py
 ```
 
-## Key Concepts
+### With MySQL:
+```bash
+# Install MySQL driver
+pip install pymysql
 
-### 1. Password Hashing (NEVER store plain passwords!)
-```python
-from werkzeug.security import generate_password_hash, check_password_hash
+# Create .env file
+cp .env.example .env
 
-# When registering
-password_hash = generate_password_hash('mypassword')
-# Result: 'pbkdf2:sha256:260000$...'
+# Edit .env and set:
+DATABASE_URL=mysql+pymysql://root:password@localhost:3306/flask_demo
 
-# When logging in
-check_password_hash(password_hash, 'mypassword')  # Returns True
-check_password_hash(password_hash, 'wrongpass')   # Returns False
+# Run app
+python app.py
 ```
 
-### 2. Flask-Login Essentials
-```python
-from flask_login import login_user, logout_user, current_user, login_required
+## Database URL Formats
 
-login_user(user)      # Create session
-logout_user()         # Clear session
-current_user          # Access logged-in user
-@login_required       # Protect route decorator
+| Database | URL Format |
+|----------|------------|
+| SQLite | `sqlite:///filename.db` |
+| PostgreSQL | `postgresql://user:pass@host:5432/dbname` |
+| MySQL | `mysql+pymysql://user:pass@host:3306/dbname` |
+
+## Setting Up PostgreSQL
+
+```bash
+# 1. Install PostgreSQL (varies by OS)
+
+# 2. Access PostgreSQL
+psql -U postgres
+
+# 3. Create database
+CREATE DATABASE flask_demo;
+
+# 4. Exit
+\q
+
+# 5. Set DATABASE_URL in .env
+DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/flask_demo
 ```
 
-### 3. UserMixin
-```python
-class User(UserMixin, db.Model):
-    # UserMixin adds these methods automatically:
-    # - is_authenticated
-    # - is_active
-    # - is_anonymous
-    # - get_id()
+## Setting Up MySQL
+
+```bash
+# 1. Install MySQL (varies by OS)
+
+# 2. Access MySQL
+mysql -u root -p
+
+# 3. Create database
+CREATE DATABASE flask_demo;
+
+# 4. Exit
+exit
+
+# 5. Set DATABASE_URL in .env
+DATABASE_URL=mysql+pymysql://root:yourpassword@localhost:3306/flask_demo
+```
+
+## Environment Variables
+
+### Option 1: .env file (Recommended)
+```
+# .env
+DATABASE_URL=postgresql://...
+SECRET_KEY=your-secret-key
+FLASK_DEBUG=True
+```
+
+### Option 2: Terminal
+```bash
+# Windows
+set DATABASE_URL=postgresql://...
+
+# Linux/Mac
+export DATABASE_URL=postgresql://...
 ```
 
 ## Key Files
 ```
-part-5/
-├── app.py              <- Auth routes and User model
+part-7/
+├── app.py              <- Database config with env vars
+├── .env.example        <- Example environment file
 ├── templates/
-│   ├── home.html       <- Public landing page
-│   ├── register.html   <- Registration form
-│   ├── login.html      <- Login form
-│   ├── dashboard.html  <- Protected page
-│   └── profile.html    <- User profile (protected)
+│   ├── index.html      <- Shows current database type
+│   └── add.html
 └── README.md
 ```
 
-## Security Best Practices
-1. NEVER store plain text passwords
-2. Use strong `secret_key` (generate with `secrets.token_hex(16)`)
-3. Use HTTPS in production
-4. Add rate limiting to prevent brute force attacks
-5. Validate password strength
+## Connection Pool Settings
+```python
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,        # Connections to keep open
+    'pool_recycle': 3600,   # Recycle after 1 hour
+    'pool_pre_ping': True,  # Verify connection before use
+}
+```
+
+## SQLite vs PostgreSQL vs MySQL
+
+| Feature | SQLite | PostgreSQL | MySQL |
+|---------|--------|------------|-------|
+| Setup | None | Server needed | Server needed |
+| Concurrency | Limited | Excellent | Good |
+| Use Case | Development, Small apps | Production | Production |
+| Performance | Fast for small data | Excellent | Excellent |
 
 ## Exercise
-1. Add a "Change Password" feature
-2. Add "Remember Me" checkbox using `login_user(user, remember=True)`
-3. Add password strength validation (min length, special chars)
+1. Set up PostgreSQL locally and connect your app
+2. Compare query performance between SQLite and PostgreSQL
+3. Add connection error handling
 
-## Next Step
-→ Go to **part-6** to learn REST API for database operations
+## Congratulations!
+You've completed all 5 parts of Flask Database learning!
+
+### What You Learned:
+1. **Part 1:** Basic SQLite connection
+2. **Part 2:** Full CRUD operations
+3. **Part 3:** SQLAlchemy ORM
+4. **Part 4:** REST API
+5. **Part 5:** Production databases

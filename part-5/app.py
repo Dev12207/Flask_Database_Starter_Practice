@@ -1,162 +1,110 @@
 """
-Part 5: User Authentication with Password Hashing
-==================================================
-Secure user registration and login system.
+Part 5: PostgreSQL/MySQL with Environment Configuration
+========================================================
+Switch from SQLite to production-ready databases!
 
 What You'll Learn:
-- User registration with hashed passwords
-- Login/Logout functionality
-- Session management
-- Protecting routes (login required)
-- Flask-Login extension
+- Connecting to PostgreSQL and MySQL
+- Environment variables for configuration
+- python-dotenv for .env files
+- Database URL formats
+- Connection pooling basics
 
-Prerequisites: Complete part-3 and part-4
-Install: pip install flask-login werkzeug
+Prerequisites: Complete all previous parts
+Install: pip install psycopg2-binary pymysql python-dotenv
 """
 
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash, check_password_hash  # For password hashing
-from datetime import datetime
+from dotenv import load_dotenv  # Load .env file
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your-super-secret-key-change-this'  # IMPORTANT: Change in production!
+app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret-key')  # Get from env or use fallback
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+
+# Get database URL from environment variable
+# Falls back to SQLite if not set
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///default.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Connection pool settings (for production)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,  # Number of connections to keep open
+    'pool_recycle': 3600,  # Recycle connections after 1 hour
+    'pool_pre_ping': True,  # Check connection validity before using
+}
 
 db = SQLAlchemy(app)
 
-# =============================================================================
-# FLASK-LOGIN SETUP
-# =============================================================================
-login_manager = LoginManager(app)  # Initialize Flask-Login
-login_manager.login_view = 'login'  # Redirect here if not logged in
-login_manager.login_message = 'Please login to access this page.'  # Flash message
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    """Flask-Login needs this to reload user from session"""
-    return User.query.get(int(user_id))
-
 
 # =============================================================================
-# USER MODEL
+# MODEL
 # =============================================================================
 
-class User(UserMixin, db.Model):  # UserMixin adds required methods for Flask-Login
+class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)  # Store hash, NOT plain password!
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def set_password(self, password):
-        """Hash the password before storing"""
-        self.password_hash = generate_password_hash(password)  # Creates secure hash
-
-    def check_password(self, password):
-        """Verify password against hash"""
-        return check_password_hash(self.password_hash, password)  # Returns True/False
+    name = db.Column(db.String(200), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    stock = db.Column(db.Integer, default=0)
+    description = db.Column(db.Text)
 
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<Product {self.name}>'
 
 
 # =============================================================================
-# PUBLIC ROUTES (No login required)
+# ROUTES
 # =============================================================================
 
 @app.route('/')
-def home():
-    return render_template('home.html')
+def index():
+    products = Product.query.all()
+    # Show which database is being used
+    db_type = 'Unknown'
+    db_url = DATABASE_URL.lower()
+    if 'postgresql' in db_url or 'postgres' in db_url:
+        db_type = 'PostgreSQL'
+    elif 'mysql' in db_url:
+        db_type = 'MySQL'
+    elif 'sqlite' in db_url:
+        db_type = 'SQLite'
+
+    return render_template('index.html', products=products, db_type=db_type, db_url=DATABASE_URL)
 
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:  # Already logged in
-        return redirect(url_for('dashboard'))
-
+@app.route('/add', methods=['GET', 'POST'])
+def add_product():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-
-        # Validation
-        if password != confirm_password:
-            flash('Passwords do not match!', 'danger')
-            return redirect(url_for('register'))
-
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists!', 'danger')
-            return redirect(url_for('register'))
-
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered!', 'danger')
-            return redirect(url_for('register'))
-
-        # Create new user
-        new_user = User(username=username, email=email)
-        new_user.set_password(password)  # Hash the password!
-
-        db.session.add(new_user)
+        new_product = Product(
+            name=request.form['name'],
+            price=float(request.form['price']),
+            stock=int(request.form.get('stock', 0)),
+            description=request.form.get('description', '')
+        )
+        db.session.add(new_product)
         db.session.commit()
+        flash('Product added!', 'success')
+        return redirect(url_for('index'))
 
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        user = User.query.filter_by(username=username).first()
-
-        if user and user.check_password(password):  # Check hashed password
-            login_user(user)  # Create session
-            flash(f'Welcome back, {user.username}!', 'success')
-
-            # Redirect to 'next' page if exists (for login_required redirect)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
-        else:
-            flash('Invalid username or password!', 'danger')
-
-    return render_template('login.html')
+    return render_template('add.html')
 
 
-@app.route('/logout')
-@login_required  # Must be logged in to logout
-def logout():
-    logout_user()  # Clear session
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('home'))
-
-
-# =============================================================================
-# PROTECTED ROUTES (Login required)
-# =============================================================================
-
-@app.route('/dashboard')
-@login_required  # This decorator protects the route!
-def dashboard():
-    return render_template('dashboard.html')
-
-
-@app.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html')
+@app.route('/delete/<int:id>')
+def delete_product(id):
+    product = Product.query.get_or_404(id)
+    db.session.delete(product)
+    db.session.commit()
+    flash('Product deleted!', 'danger')
+    return redirect(url_for('index'))
 
 
 # =============================================================================
@@ -166,43 +114,83 @@ def profile():
 def init_db():
     with app.app_context():
         db.create_all()
-        print('Database created!')
+        print(f'Database initialized! Using: {DATABASE_URL}')
+
+        if Product.query.count() == 0:
+            sample = [
+                Product(name='Laptop', price=999.99, stock=10, description='High-performance laptop'),
+                Product(name='Mouse', price=29.99, stock=50, description='Wireless mouse'),
+                Product(name='Keyboard', price=79.99, stock=30, description='Mechanical keyboard'),
+            ]
+            db.session.add_all(sample)
+            db.session.commit()
+            print('Sample products added!')
 
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG', 'True') == 'True')
 
 
 # =============================================================================
-# KEY CONCEPTS:
+# DATABASE URL FORMATS:
 # =============================================================================
 #
-# 1. Password Hashing (NEVER store plain passwords!)
-#    - generate_password_hash('password') → Creates hash like 'pbkdf2:sha256:...'
-#    - check_password_hash(hash, 'password') → Returns True if match
+# SQLite (File-based, no server needed):
+#   sqlite:///database.db
+#   sqlite:///path/to/database.db
 #
-# 2. Flask-Login
-#    - UserMixin: Adds is_authenticated, is_active, get_id() methods
-#    - login_user(user): Creates session, user is now logged in
-#    - logout_user(): Clears session
-#    - current_user: Access logged-in user anywhere
-#    - @login_required: Protects routes
+# PostgreSQL:
+#   postgresql://username:password@host:port/database_name
+#   postgresql://postgres:mypassword@localhost:5432/mydb
 #
-# 3. Session Flow:
-#    Register → Hash password → Store in DB
-#    Login → Check hash → Create session → Redirect
-#    Access protected page → Check session → Allow or redirect
-#    Logout → Clear session
+# MySQL:
+#   mysql+pymysql://username:password@host:port/database_name
+#   mysql+pymysql://root:mypassword@localhost:3306/mydb
 #
 # =============================================================================
-# SECURITY BEST PRACTICES:
+# SETTING UP POSTGRESQL:
 # =============================================================================
 #
-# - NEVER store plain text passwords
-# - Use strong secret_key (generate with: python -c "import secrets; print(secrets.token_hex(16))")
-# - Use HTTPS in production
-# - Add rate limiting to prevent brute force
-# - Validate input (email format, password strength)
+# 1. Install PostgreSQL
+# 2. Create a database:
+#    psql -U postgres
+#    CREATE DATABASE flask_demo;
+#
+# 3. Set environment variable:
+#    DATABASE_URL=postgresql://postgres:password@localhost:5432/flask_demo
+#
+# 4. Install Python driver:
+#    pip install psycopg2-binary
+#
+# =============================================================================
+# SETTING UP MYSQL:
+# =============================================================================
+#
+# 1. Install MySQL
+# 2. Create a database:
+#    mysql -u root -p
+#    CREATE DATABASE flask_demo;
+#
+# 3. Set environment variable:
+#    DATABASE_URL=mysql+pymysql://root:password@localhost:3306/flask_demo
+#
+# 4. Install Python driver:
+#    pip install pymysql
+#
+# =============================================================================
+# ENVIRONMENT VARIABLES:
+# =============================================================================
+#
+# Option 1: Set in terminal
+#   Windows: set DATABASE_URL=postgresql://...
+#   Linux/Mac: export DATABASE_URL=postgresql://...
+#
+# Option 2: Use .env file (recommended)
+#   Create .env file with:
+#     DATABASE_URL=postgresql://...
+#     SECRET_KEY=your-secret-key
+#
+#   Then load with python-dotenv (already done in this file)
 #
 # =============================================================================

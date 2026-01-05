@@ -1,104 +1,120 @@
-# Part 4: Database Migrations with Flask-Migrate
+# Part 4: REST API with Flask
 
 ## One-Line Summary
-Database migrations using Flask-Migrate (Alembic) for safe schema changes
+REST API with Flask for database operations (JSON responses)
 
 ## What You'll Learn
-- Why migrations are important
-- Setting up Flask-Migrate
-- Creating and applying migrations
-- Adding new columns without losing data
+- REST API concepts (GET, POST, PUT, DELETE)
+- JSON responses with `jsonify()`
+- API error handling and status codes
+- Query parameters for filtering
+- Testing APIs with curl
 
 ## Prerequisites
 - Complete part-3 (Flask-SQLAlchemy)
-- Install: `pip install flask-migrate`
-
-## Why Migrations?
-
-### Without Migrations (BAD):
-```
-1. You add a new column to your model
-2. Old database doesn't have that column
-3. Options:
-   - Delete database and recreate (LOSE ALL DATA!)
-   - Manually alter table (error-prone)
-```
-
-### With Migrations (GOOD):
-```
-1. You add a new column to your model
-2. Run: flask db migrate -m "Add phone column"
-3. Run: flask db upgrade
-4. Column added! No data lost!
-```
 
 ## How to Run
-
-### First Time Setup:
 ```bash
-cd part-4
-pip install flask-migrate
-
-# Set Flask app environment variable
-# Windows:
-set FLASK_APP=app.py
-# Mac/Linux:
-export FLASK_APP=app.py
-
-# Initialize migrations (creates 'migrations' folder)
-flask db init
-
-# Create first migration
-flask db migrate -m "Initial migration"
-
-# Apply migration (creates tables)
-flask db upgrade
-
-# Run the app
+cd part-6
 python app.py
 ```
+Open: http://localhost:5000
 
-### After Changing Models:
+## REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/books` | Get all books |
+| GET | `/api/books/<id>` | Get single book |
+| POST | `/api/books` | Create new book |
+| PUT | `/api/books/<id>` | Update book |
+| DELETE | `/api/books/<id>` | Delete book |
+| GET | `/api/books/search?q=<title>` | Search books |
+
+## HTTP Status Codes
+
+| Code | Meaning | When Used |
+|------|---------|-----------|
+| 200 | OK | Successful GET, PUT, DELETE |
+| 201 | Created | Successful POST |
+| 400 | Bad Request | Invalid data |
+| 404 | Not Found | Resource doesn't exist |
+
+## Testing with curl
+
 ```bash
-flask db migrate -m "Describe what you changed"
-flask db upgrade
+# Get all books
+curl http://localhost:5000/api/books
+
+# Get single book
+curl http://localhost:5000/api/books/1
+
+# Create a book
+curl -X POST http://localhost:5000/api/books \
+  -H "Content-Type: application/json" \
+  -d '{"title": "New Book", "author": "Author Name", "year": 2024}'
+
+# Update a book
+curl -X PUT http://localhost:5000/api/books/1 \
+  -H "Content-Type: application/json" \
+  -d '{"year": 2025}'
+
+# Delete a book
+curl -X DELETE http://localhost:5000/api/books/1
+
+# Search books
+curl "http://localhost:5000/api/books/search?q=python&author=eric"
 ```
 
-## Migration Commands Cheatsheet
+## Key Concepts
 
-| Command | Description |
-|---------|-------------|
-| `flask db init` | Initialize migrations (first time only) |
-| `flask db migrate -m "message"` | Create new migration |
-| `flask db upgrade` | Apply pending migrations |
-| `flask db downgrade` | Undo last migration |
-| `flask db current` | Show current migration |
-| `flask db history` | Show all migrations |
+### JSON Response
+```python
+return jsonify({
+    'success': True,
+    'data': {...}
+}), 200  # Status code
+```
+
+### Getting Request Data
+```python
+# JSON body (POST/PUT)
+data = request.get_json()
+
+# Query parameters (?key=value)
+value = request.args.get('key')
+```
+
+### Model to Dictionary
+```python
+def to_dict(self):
+    return {
+        'id': self.id,
+        'title': self.title,
+        # ...
+    }
+```
 
 ## Key Files
 ```
-part-4/
-├── app.py              <- Models with new fields
-├── migrations/         <- Created by flask db init
-│   └── versions/       <- Migration files stored here
-├── templates/
-│   ├── index.html      <- Shows new columns
-│   ├── add.html
-│   ├── edit.html
-│   └── courses.html
+part-6/
+├── app.py              <- REST API routes
 └── README.md
 ```
 
-## New Fields Added (via migration)
-- `Student.phone` - Phone number
-- `Student.enrolled_at` - Enrollment date
-- `Student.is_active` - Active status
-- `Course.created_at` - Creation timestamp
+## API Response Format
+```json
+{
+    "success": true,
+    "message": "Optional message",
+    "data": { ... }
+}
+```
 
 ## Exercise
-1. Add a new field `address` to Student model
-2. Create and apply migration
-3. Verify the field appears in database
+1. Add pagination: `/api/books?page=1&per_page=10`
+2. Add sorting: `/api/books?sort=title&order=desc`
+3. Create a simple frontend using JavaScript fetch()
 
 ## Next Step
-→ Go to **part-5** to learn user authentication with password hashing
+→ Go to **part-5** to learn PostgreSQL/MySQL configuration
