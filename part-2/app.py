@@ -122,6 +122,21 @@ def delete_student(id):
     flash('Student deleted!', 'danger')  # Show delete message
     return redirect(url_for('index'))
 
+@app.route('/search')
+def Search_result():
+    # 1. Get the search term from the 'query' input in the HTML form
+    search_query = request.args.get('query', '') 
+    
+    conn = get_db_connection()
+
+    students = conn.execute(
+        'SELECT * FROM students WHERE name LIKE ? OR email LIKE ?', 
+        ('%' + search_query + '%', '%' + search_query + '%')
+    ).fetchall()
+    
+    conn.close()
+    return render_template('index.html', students=students)
+
 
 if __name__ == '__main__':
     init_db()
