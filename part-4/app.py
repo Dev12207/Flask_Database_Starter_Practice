@@ -51,14 +51,42 @@ class Book(db.Model):
 # REST API ROUTES
 # =============================================================================
 
-# GET /api/books - Get all books
+# GET /api/books - Get all books with sorting and pagination
 @app.route('/api/books', methods=['GET'])
 def get_books():
-    books = Book.query.all()
-    return jsonify({  # Return JSON response
+    # 1. Get query parameters for sorting
+    sort_column = request.args.get('sort', 'id')  # Default sort by ID
+    order = request.args.get('order', 'asc')      # Default order is ascending
+
+    # 2. Get query parameters for pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # 3. Build the base query
+    query = Book.query
+
+    # 4. Apply Sorting logic
+    # Check if the requested column exists in the Book model to avoid errors
+    if hasattr(Book, sort_column):
+        col = getattr(Book, sort_column)
+        if order.lower() == 'desc':
+            query = query.order_by(col.desc())
+        else:
+            query = query.order_by(col.asc())
+
+    # 5. Apply Pagination
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    books = pagination.items
+
+    return jsonify({
         'success': True,
         'count': len(books),
-        'books': [book.to_dict() for book in books]  # List comprehension to convert all
+        'total_books': pagination.total,
+        'total_pages': pagination.pages,
+        'current_page': pagination.page,
+        'sort': sort_column,
+        'order': order,
+        'books': [book.to_dict() for book in books]
     })
 
 
@@ -204,83 +232,143 @@ def search_books():
 @app.route('/')
 def index():
     return '''
+    <!DOCTYPE html>
     <html>
     <head>
-        <title>Part 4 - REST API</title>
+        <title>Part 4 - Book Manager</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a2e; color: #eee; }
-            h1 { color: #e94560; }
-            .endpoint { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #e94560; }
-            .method { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; margin-right: 10px; }
-            .get { background: #27ae60; }
-            .post { background: #f39c12; }
-            .put { background: #3498db; }
-            .delete { background: #e74c3c; }
-            code { background: #0f3460; padding: 2px 6px; border-radius: 3px; }
-            pre { background: #0f3460; padding: 15px; border-radius: 8px; overflow-x: auto; }
-            a { color: #e94560; }
+            body { font-family: 'Segoe UI', sans-serif; margin: 40px; background: #1a1a2e; color: #eee; }
+            .container { max-width: 1000px; margin: auto; }
+            h1 { color: #e94560; border-bottom: 2px solid #e94560; padding-bottom: 10px; }
+            .card { background: #16213e; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+            input { padding: 8px; margin: 5px; border-radius: 4px; border: none; background: #0f3460; color: white; width: 150px; }
+            button { padding: 8px 15px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; margin: 2px; }
+            .btn-add { background: #27ae60; color: white; }
+            .btn-edit { background: #3498db; color: white; }
+            .btn-save { background: #f1c40f; color: #1a1a2e; }
+            .btn-delete { background: #e74c3c; color: white; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: left; background: #0f3460; padding: 12px; }
+            td { padding: 12px; border-bottom: 1px solid #0f3460; }
         </style>
     </head>
     <body>
-        <h1>Part 4: REST API Demo</h1>
-        <p>This is a JSON API - use curl, Postman, or JavaScript fetch() to test!</p>
+        <div class="container">
+            <h1>Book Inventory Manager</h1>
+            
+            <div class="card">
+                <h3>Add New Book</h3>
+                <input type="text" id="title" placeholder="Title">
+                <input type="text" id="author" placeholder="Author">
+                <input type="text" id="isbn" placeholder="ISBN">
+                <button class="btn-add" onclick="addBook()">Add Book</button>
+            </div>
 
-        <h2>API Endpoints:</h2>
-
-        <div class="endpoint">
-            <span class="method get">GET</span>
-            <code>/api/books</code> - Get all books
-            <br><a href="/api/books" target="_blank">Try it →</a>
+            <div class="card">
+                <h3>Current Inventory</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>ISBN</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="book-table"></tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="endpoint">
-            <span class="method get">GET</span>
-            <code>/api/books/&lt;id&gt;</code> - Get single book
-        </div>
+        <script>
+            // 1. FETCH AND DISPLAY
+            async function fetchBooks() {
+                const response = await fetch('/api/books');
+                const data = await response.json();
+                const tableBody = document.getElementById('book-table');
+                tableBody.innerHTML = '';
 
-        <div class="endpoint">
-            <span class="method post">POST</span>
-            <code>/api/books</code> - Create new book
-        </div>
+                data.books.forEach(book => {
+                    tableBody.innerHTML += `
+                        <tr id="row-${book.id}">
+                            <td>${book.id}</td>
+                            <td class="title-cell">${book.title}</td>
+                            <td class="author-cell">${book.author}</td>
+                            <td class="isbn-cell">${book.isbn || ''}</td>
+                            <td>
+                                <button class="btn-edit" onclick="enableEdit(${book.id})">Edit</button>
+                                <button class="btn-delete" onclick="deleteBook(${book.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
 
-        <div class="endpoint">
-            <span class="method put">PUT</span>
-            <code>/api/books/&lt;id&gt;</code> - Update book
-        </div>
+            // 2. ENABLE INLINE EDITING
+            function enableEdit(id) {
+                const row = document.getElementById(`row-${id}`);
+                const title = row.querySelector('.title-cell').innerText;
+                const author = row.querySelector('.author-cell').innerText;
+                const isbn = row.querySelector('.isbn-cell').innerText;
 
-        <div class="endpoint">
-            <span class="method delete">DELETE</span>
-            <code>/api/books/&lt;id&gt;</code> - Delete book
-        </div>
+                row.innerHTML = `
+                    <td>${id}</td>
+                    <td><input type="text" id="edit-title-${id}" value="${title}"></td>
+                    <td><input type="text" id="edit-author-${id}" value="${author}"></td>
+                    <td><input type="text" id="edit-isbn-${id}" value="${isbn}"></td>
+                    <td>
+                        <button class="btn-save" onclick="updateBook(${id})">Save</button>
+                        <button onclick="fetchBooks()">Cancel</button>
+                    </td>
+                `;
+            }
 
-        <div class="endpoint">
-            <span class="method get">GET</span>
-            <code>/api/books/search?q=&lt;title&gt;&author=&lt;name&gt;</code> - Search books
-        </div>
+            // 3. UPDATE BOOK (PUT REQUEST)
+            async function updateBook(id) {
+                const updatedData = {
+                    title: document.getElementById(`edit-title-${id}`).value,
+                    author: document.getElementById(`edit-author-${id}`).value,
+                    isbn: document.getElementById(`edit-isbn-${id}`).value
+                };
 
-        <h2>Test with curl:</h2>
-        <pre>
-# Get all books
-curl http://localhost:5000/api/books
+                const response = await fetch('/api/books/' + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
 
-# Create a book
-curl -X POST http://localhost:5000/api/books \\
-  -H "Content-Type: application/json" \\
-  -d '{"title": "Flask Web Development", "author": "Miguel Grinberg", "year": 2018}'
+                if (response.ok) {
+                    fetchBooks();
+                } else {
+                    alert("Failed to update book.");
+                }
+            }
 
-# Update a book
-curl -X PUT http://localhost:5000/api/books/1 \\
-  -H "Content-Type: application/json" \\
-  -d '{"year": 2023}'
+            async function addBook() {
+                const title = document.getElementById('title').value;
+                const author = document.getElementById('author').value;
+                const isbn = document.getElementById('isbn').value;
+                await fetch('/api/books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author, isbn })
+                });
+                fetchBooks();
+            }
 
-# Delete a book
-curl -X DELETE http://localhost:5000/api/books/1
-        </pre>
+            async function deleteBook(id) {
+                if (confirm('Delete?')) {
+                    await fetch('/api/books/' + id, { method: 'DELETE' });
+                    fetchBooks();
+                }
+            }
+
+            fetchBooks();
+        </script>
     </body>
     </html>
     '''
-
-
 # =============================================================================
 # INITIALIZE DATABASE WITH SAMPLE DATA
 # =============================================================================
