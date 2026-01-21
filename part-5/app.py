@@ -106,6 +106,26 @@ def delete_product(id):
     flash('Product deleted!', 'danger')
     return redirect(url_for('index'))
 
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
+def edit_product(id):
+    product = Product.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        try:
+            product.name = request.form['name']
+            product.price = float(request.form['price'])
+            product.stock = int(request.form.get('stock', 0))
+            product.description = request.form.get('description', '')
+            
+            db.session.commit()
+            flash('Product updated successfully!', 'success')
+            return redirect(url_for('index'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating product: {e}', 'danger')
+            
+    return render_template('edit.html', product=product)
+
 
 # =============================================================================
 # INITIALIZE DATABASE
@@ -129,7 +149,8 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=os.getenv('FLASK_DEBUG', 'True') == 'True')
+    print("Database Connection Successful")
+    app.run(debug='True')
 
 
 # =============================================================================
@@ -142,7 +163,7 @@ if __name__ == '__main__':
 #
 # PostgreSQL:
 #   postgresql://username:password@host:port/database_name
-#   postgresql://postgres:mypassword@localhost:5432/mydb
+#   postgresql://postgres:0707@localhost:5432/products
 #
 # MySQL:
 #   mysql+pymysql://username:password@host:port/database_name

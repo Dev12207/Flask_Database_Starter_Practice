@@ -23,6 +23,8 @@
         .flash.danger { background: #ef9a9a; color: #b71c1c; }
         .price { color: #81c784; font-weight: bold; }
         .stock { color: #90a4ae; }
+        .btn-update { background: #ffb74d; color: white; } /* Orange color */
+        .btn-update:hover { background: #ffa726; }
     </style>
 </head>
 <body>
@@ -63,8 +65,10 @@
             <td class="stock">{{ product.stock }} units</td>
             <td>{{ product.description or '-' }}</td>
             <td>
+                <a href="{{ url_for('edit_product', id=product.id) }}" class="btn btn-update">Update</a>
+    
                 <a href="{{ url_for('delete_product', id=product.id) }}" class="btn btn-delete"
-                   onclick="return confirm('Delete this product?')">Delete</a>
+                onclick="return confirm('Delete this product?')">Delete</a>
             </td>
         </tr>
         {% endfor %}
