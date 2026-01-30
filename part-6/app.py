@@ -15,43 +15,44 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventory.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 
-
-# =============================================================================
-# STEP 1: Product Model (Already done for you)
-# =============================================================================
-
+# Database Model
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    quantity = db.Column(db.Integer, default=0)
+    quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
+# --- Your code here (Paste Hint 1, 2, and 3) ---
+@app.route('/')
+def index():
+    products = Product.query.all()
+    return render_template('index.html',products=products)
 
-# =============================================================================
-# STEP 2: Create your routes here
-# =============================================================================
+@app.route('/add', methods=['GET', 'POST'])
+def add_product():
+    if request.method == 'POST':
+        name = request.form['name']
+        quantity = int(request.form['quantity'])
+        price = float(request.form['price'])
 
-# Route 1: Home page - display all products
-# Your code here...
+        new_product = Product(name=name, quantity=quantity, price=price)
+        db.session.add(new_product)
+        db.session.commit()
 
+        return redirect(url_for('index'))
 
-# Route 2: Add product page - form to add new product
-# Your code here...
+    return render_template('add.html')
 
-
-# Route 3: Delete product
-# Your code here...
-
-
-# =============================================================================
-# STEP 3: Initialize database (Already done for you)
-# =============================================================================
+@app.route('/delete/<int:id>')
+def delete_product(id):
+    product = Product.query.get_or_404(id)
+    db.session.delete(product)
+    db.session.commit()
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        db.create_all()  # Creates the database file
     app.run(debug=True)
